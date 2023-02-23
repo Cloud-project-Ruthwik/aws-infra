@@ -3,7 +3,10 @@ variable "region" {
     type = string
   default = "us-east-1"
 }
-
+variable "ami_id" {
+  type = string
+  default = "ami-06ddec9ef3b505ecb"
+}
 variable "vpc_cidr_block" {
   default = "10.0.0.0/16"
 }
