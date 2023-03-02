@@ -1,55 +1,76 @@
-# Define variables
 variable "region" {
-    type = string
-  default = "us-east-1"
-}
-variable "ami_id" {
-  type = string
-  default = "ami-06ddec9ef3b505ecb"
-}
-variable "vpc_cidr_block" {
-  default = "10.0.0.0/16"
-}
-
-variable "vpc_name" {
-  default = "VPC"
+  description = "The region to create the VPC in"
+  type        = string
+  default     = "us-east-1"
 }
 
 variable "profile" {
-    default = "dev"  
+  description = "The profile is the account where to deploy the infrastructure"
+  type        = string
+  default = "dev"
 }
 
-
-data "aws_availability_zones" "available" {
-  state = "available"
+variable "vpc_cidr" {
+  description = "The IP range for the VPC"
+  default     = "10.0.0.0/16"
 }
 
-variable "public_subnet_cidr_blocks" {
-  type    = list(string)
-  default = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+variable "availability_zones" {
+  description = "The availability zones to create subnets in"
+  type        = list(string)
+  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
-# variable "public_subnet_count" {
-#   type    = number
-#   default = 3
-# }
-
-
-variable "public_subnet_count" {
-  description = "Number of public subnets to create"
-  type        = number
-  default     = 3
- 
+variable "public_subnet_cidrs" {
+  description = "The IP ranges for the public subnets"
+  type        = list(string)
+  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 }
 
-
-variable "private_subnet_cidr_blocks" {
-  type    = list(string)
-  default = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+variable "private_subnet_cidrs" {
+  description = "The IP ranges for the private subnets"
+  type        = list(string)
+  default     = ["10.0.10.0/24", "10.0.11.0/24", "10.0.12.0/24"]
 }
 
-variable "private_subnet_count" {
+variable "public_route_table_cidr" {
+  type        = string
+  description = "The CIDR block of the public route table"
+  default     = "0.0.0.0/0"
+}
+
+variable "private_route_table_cidr" {
+  type        = string
+  description = "The CIDR block of the private route table"
+  default     = "0.0.0.0/0"
+}
+
+variable "ami_id" {
+  description = "ID of the AMI to use for the EC2 instance"
+}
+
+variable "subnet_id" {
+  description = "ID of the subnet where the EC2 instance will be launched"
+  type        = string
+  default     = "aws_subnet.public_subnet.1.id"
+}
+
+variable "ec2_instance_count" {
   type    = number
-  default = 3
+  default = 1
 }
 
+variable "keyname" {
+  default = "my-keypair"
+}
+
+variable "environment" {
+  type    = string
+  default = "dev"
+}
+
+variable "db_username" {}
+variable "db_password" {}
+variable "db_instance_count" {
+  default = 1
+}

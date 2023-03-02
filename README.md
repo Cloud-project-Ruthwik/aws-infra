@@ -1,7 +1,7 @@
 Networks and Cloud Computing Assignments
 Made using Terraform 
-The following code installs VPC in AWS
-The following variables can be specified : Region, VPC CIDR Block, VPC Name, profile, public subnet count, private subnet count, public subnet CIDR Blocks and private subnet CIDR Blocks
+The following code installs VPC, EC2, RDS, S3 in AWS
+The following variables can be specified : Region, VPC CIDR Block, VPC Name, profile, public subnet count, private subnet count, public subnet CIDR Blocks and private subnet CIDR Blocks and Many more
 
 The number of Public Subnets and Private Subnets can be specified too
 
