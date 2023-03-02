@@ -1,55 +1,90 @@
+module "vpc" {
+  source = "./modules/vpc"
 
-#Creating an Instance
-resource "aws_instance" "example_instance" {
-  ami           = var.ami_id
-  instance_type = "t2.micro"
-  key_name = "ec2"
-  vpc_security_group_ids = ["${aws_security_group.example_sg.id}"]
-  subnet_id = "${aws_subnet.public[0].id}"
-  root_block_device {
-    volume_type           = "gp2"
-    volume_size           = 50
-    delete_on_termination = true
-  }
+  vpc_cidr             = var.vpc_cidr
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  availability_zones   = var.availability_zones
+}
 
-  tags = {
-    Name = "EC2 Instance"
-  }
+module "public_subnets" {
+  source = "./modules/public_subnets"
 
+  vpc_id              = module.vpc.vpc_id
+  public_subnet_cidrs = var.public_subnet_cidrs
+  availability_zones  = var.availability_zones
+}
 
+module "private_subnets" {
+  source = "./modules/private_subnets"
+
+  vpc_id               = module.vpc.vpc_id
+  private_subnet_cidrs = var.private_subnet_cidrs
+  availability_zones   = var.availability_zones
+}
+
+module "internet_gateway" {
+  source = "./modules/internet_gateway"
+
+  vpc_id = module.vpc.vpc_id
+}
+
+module "public_route_table" {
+  source = "./modules/public_route_table"
+
+  vpc_id                  = module.vpc.vpc_id
+  public_subnet_ids       = module.public_subnets.public_subnet_ids
+  public_route_table_cidr = var.public_route_table_cidr
+  internet_gateway_id     = module.internet_gateway.internet_gateway_id
+}
+
+module "private_route_table" {
+  source = "./modules/private_route_table"
+
+  vpc_id                   = module.vpc.vpc_id
+  private_subnet_ids       = module.private_subnets.private_subnet_ids
+  private_route_table_cidr = var.private_route_table_cidr
+  # internet_gateway_id     = module.internet_gateway.internet_gateway_id
+}
+
+module "ec2_instance" {
+  source             = "./modules/ec2_instance"
+  ami_id             = var.ami_id
+  instance_type      = "t2.micro"
+  ssh_key_name       = var.keyname
+  root_volume_size   = 50
+  vpc_id             = module.vpc.vpc_id
+  public_subnet_ids  = module.public_subnets.public_subnet_ids
+  ec2_instance_count = var.ec2_instance_count
+  iam_role_name = module.iam_role.iam_role_name
+  s3_bucket_name = module.s3_bucket.s3_bucket_name
+  database_endpoint = module.rds_instance.database_endpoint
+  database_username = module.rds_instance.database_username
+  database_password = module.rds_instance.database_password
+}
+
+module "s3_bucket" {
+  source = "./modules/s3_bucket"
+  environment = var.environment
 }
 
 
-resource "aws_security_group" "example_sg" {
-  name_prefix = "example_sg"
-   vpc_id = "${aws_vpc.my_vpc.id}"
-ingress {
-    from_port = 22
-    to_port = 22
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port = 80
-    to_port = 80
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port = 443
-    to_port = 443
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port = 3000
-    to_port = 3000
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = {
-    Name = "application"
-  }
+module "iam_role" {
+  source = "./modules/iam_role"
+  WebAppS3_policy_arn = module.iam_policy.WebAppS3_policy_arn
 }
+
+module "iam_policy" {
+  source = "./modules/iam_policy"
+  s3_bucket_name = module.s3_bucket.s3_bucket_name
+}
+
+module "rds_instance" {
+  source                        = "./modules/rds_instance"
+  vpc_id                        = module.vpc.vpc_id
+  db_password                   = var.db_password
+  db_username                   = var.db_username
+  application_security_group_id = module.ec2_instance.application_security_group_id
+  private_subnet_ids = module.private_subnets.private_subnet_ids
+}
+
