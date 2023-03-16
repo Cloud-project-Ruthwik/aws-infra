@@ -63,4 +63,5 @@ variable "database_password" {
 }
 
 variable "zone_id"{
+  default = "Z02490761XEL187GYJBQP"
 }
