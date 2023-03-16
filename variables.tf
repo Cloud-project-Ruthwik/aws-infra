@@ -1,7 +1,7 @@
 variable "region" {
   description = "The region to create the VPC in"
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 }
 
 variable "profile" {
@@ -18,7 +18,7 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "The availability zones to create subnets in"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  default     = ["us-east-2a", "us-east-2b", "us-east-2c"]
 }
 
 variable "public_subnet_cidrs" {
@@ -73,4 +73,9 @@ variable "db_username" {}
 variable "db_password" {}
 variable "db_instance_count" {
   default = 1
+}
+
+
+variable "zone_id" {
+  
 }

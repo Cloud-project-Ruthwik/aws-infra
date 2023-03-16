@@ -61,3 +61,6 @@ variable "database_username" {
 variable "database_password" {
   
 }
+
+variable "zone_id"{
+}

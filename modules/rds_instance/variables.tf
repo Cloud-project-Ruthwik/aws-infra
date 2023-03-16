@@ -31,5 +31,3 @@ variable "application_security_group_id" {
 variable "db_instance_count" {
   default = 1
 }
-
-

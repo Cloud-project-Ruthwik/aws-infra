@@ -47,20 +47,13 @@ module "private_route_table" {
   # internet_gateway_id     = module.internet_gateway.internet_gateway_id
 }
 
-module "ec2_instance" {
-  source             = "./modules/ec2_instance"
-  ami_id             = var.ami_id
-  instance_type      = "t2.micro"
-  ssh_key_name       = var.keyname
-  root_volume_size   = 50
-  vpc_id             = module.vpc.vpc_id
-  public_subnet_ids  = module.public_subnets.public_subnet_ids
-  ec2_instance_count = var.ec2_instance_count
-  iam_role_name = module.iam_role.iam_role_name
-  s3_bucket_name = module.s3_bucket.s3_bucket_name
-  database_endpoint = module.rds_instance.database_endpoint
-  database_username = module.rds_instance.database_username
-  database_password = module.rds_instance.database_password
+module "rds_instance" {
+  source                        = "./modules/rds_instance"
+  vpc_id                        = module.vpc.vpc_id
+  db_password                   = var.db_password
+  db_username                   = var.db_username
+  application_security_group_id = module.ec2_instance.application_security_group_id
+  private_subnet_ids = module.private_subnets.private_subnet_ids
 }
 
 module "s3_bucket" {
@@ -79,12 +72,23 @@ module "iam_policy" {
   s3_bucket_name = module.s3_bucket.s3_bucket_name
 }
 
-module "rds_instance" {
-  source                        = "./modules/rds_instance"
-  vpc_id                        = module.vpc.vpc_id
-  db_password                   = var.db_password
-  db_username                   = var.db_username
-  application_security_group_id = module.ec2_instance.application_security_group_id
-  private_subnet_ids = module.private_subnets.private_subnet_ids
+
+module "ec2_instance" {
+  source             = "./modules/ec2_instance"
+  ami_id             = var.ami_id
+  instance_type      = "t2.micro"
+  ssh_key_name       = var.keyname
+  root_volume_size   = 50
+  vpc_id             = module.vpc.vpc_id
+  public_subnet_ids  = module.public_subnets.public_subnet_ids
+  ec2_instance_count = var.ec2_instance_count
+  iam_role_name = module.iam_role.iam_role_name
+  s3_bucket_name = module.s3_bucket.s3_bucket_name
+  database_endpoint = module.rds_instance.database_endpoint
+  database_username = module.rds_instance.database_username
+  database_password = module.rds_instance.database_password
+  zone_id            = var.zone_id
 }
+
+
 
