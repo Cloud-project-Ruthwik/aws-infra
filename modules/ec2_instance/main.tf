@@ -110,7 +110,6 @@ pm2 save
 
 EOF
 
-iam_instance_profile = aws_iam_instance_profile.Webapp_ec2.id
 
   root_block_device {
     volume_size = 50
