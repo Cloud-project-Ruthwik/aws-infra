@@ -21,8 +21,8 @@ resource "aws_db_subnet_group" "database" {
 }
 
 # Create a new RDS parameter group for PostgreSQL 13.3
-resource "aws_db_parameter_group" "my_pg13_param_group" {
-  name        = "my-postgres-13-3-param-group"
+resource "aws_db_parameter_group" "database" {
+  name        = "csye622"
   family      = "postgres13"
   description = "My PostgreSQL 13.3 parameter group"
 }
@@ -44,7 +44,7 @@ resource "aws_db_instance" "database" {
   identifier             = var.settings.database.identifier
   publicly_accessible    = false
   skip_final_snapshot    = true
-  parameter_group_name   = aws_db_parameter_group.my_pg13_param_group.name
+  parameter_group_name   = aws_db_parameter_group.database.name
   
 }
 

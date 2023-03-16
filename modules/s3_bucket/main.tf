@@ -21,14 +21,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "private_bucket" {
 }
 
 resource "aws_s3_bucket" "private_bucket" {
-  bucket        = "img9141"
+  bucket        = "demo-tf-s3-sumanayana"
   force_destroy = true
 }
 
-# resource "aws_s3_bucket_acl" "private_bucket" {
-#   bucket = aws_s3_bucket.private_bucket.id
-#   acl    = "private"
-# }
 
 resource "aws_s3_bucket_public_access_block" "private_bucket" {
   bucket = aws_s3_bucket.private_bucket.id
@@ -38,5 +34,3 @@ resource "aws_s3_bucket_public_access_block" "private_bucket" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
-
-

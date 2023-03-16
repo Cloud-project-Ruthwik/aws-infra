@@ -61,3 +61,7 @@ variable "database_username" {
 variable "database_password" {
   
 }
+
+variable "zone_id"{
+  default = "Z059366130TUKLB8AHN6Y"
+}

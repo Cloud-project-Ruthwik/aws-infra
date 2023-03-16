@@ -80,15 +80,37 @@ resource "aws_instance" "Webapp_ec2" {
   associate_public_ip_address = "true"
   disable_api_termination = false
 
-  user_data = <<-EOF
-              #!/bin/bash
-              echo "export RDS_USERNAME=${var.database_username}" >> /etc/profile.d/webapp_env.sh
-              echo "export RDS_PASSWORD=${var.database_password}" >> /etc/profile.d/webapp_env.sh
-              echo "export RDS_HOST=${var.database_endpoint}" >> /etc/profile.d/webapp_env.sh
-              echo "export S3_BUCKET_NAME=${var.s3_bucket_name}" >> /etc/profile.d/webapp_env.sh
-              EOF
+user_data = <<EOF
 
-  # iam_instance_profile = aws_iam_instance_profile.Webapp_ec2.id
+ #!/bin/bash
+ # Install Node.js and PM2
+  curl -sL https://rpm.nodesource.com/setup_14.x | sudo bash -
+  sudo yum install -y nodejs
+  sudo npm install -g pm2
+
+# Change to app directory
+cd /home/ec2-user
+
+# Install dependencies and build the app
+sudo npm install
+sudo npm run build
+
+# Set environment variables
+cat <<EOT >> /home/ec2-user/.env
+DB_HOST=${element(split(":", var.database_endpoint), 0)}
+DB_USER=${var.database_username}
+DB_PASSWORD=${var.database_password}
+DB_DB=csye6225
+AWS_BUCKET_NAME=${var.s3_bucket_name}
+EOT
+source /home/ec2-user/.env
+# Start the app with PM2
+pm2 restart /home/ec2-user/server.js
+pm2 save
+
+EOF
+
+iam_instance_profile = aws_iam_instance_profile.Webapp_ec2.id
 
   root_block_device {
     volume_size = 50
@@ -107,3 +129,15 @@ resource "aws_instance" "Webapp_ec2" {
   }
 
 }
+
+
+
+  resource "aws_route53_record" "Webapp_ec2" {
+  count   = var.ec2_instance_count
+  zone_id = var.zone_id
+  name    = ""
+  type    = "A"
+  ttl     = 60
+  records = [aws_instance.Webapp_ec2[count.index].public_ip]
+}
+
