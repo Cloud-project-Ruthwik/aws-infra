@@ -21,7 +21,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "private_bucket" {
 }
 
 resource "aws_s3_bucket" "private_bucket" {
-  bucket        = "demo-tf-s3-sumanayana"
+  bucket        = "demo-tf-s3-ruthwik"
   force_destroy = true
 }
 
