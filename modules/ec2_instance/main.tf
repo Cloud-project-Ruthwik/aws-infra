@@ -64,10 +64,10 @@ resource "aws_security_group" "application" {
   }
 }
 
-# resource "aws_iam_instance_profile" "Webapp_ec2" {
-#   name = "Webapp_ec2"
-#   role = var.iam_role_name
-# }
+resource "aws_iam_instance_profile" "Webapp_ec2" {
+  name = "Webapp_ec2"
+  role = var.iam_role_name
+}
 
 resource "aws_instance" "Webapp_ec2" {
 
@@ -110,6 +110,7 @@ pm2 save
 
 EOF
 
+iam_instance_profile = aws_iam_instance_profile.Webapp_ec2.id
 
   root_block_device {
     volume_size = 50
