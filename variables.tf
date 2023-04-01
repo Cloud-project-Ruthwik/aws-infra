@@ -77,5 +77,5 @@ variable "db_instance_count" {
 
 
 variable "zone_id" {
-  default = "Z02490761XEL187GYJBQP"
+  default = "Z08052673S2S1008ZWHEV"
 }

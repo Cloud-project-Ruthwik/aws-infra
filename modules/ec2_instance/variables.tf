@@ -62,6 +62,10 @@ variable "database_password" {
   
 }
 
+variable "region"{
+  default = "us-east-1"
+}
+
 variable "zone_id"{
-  default = "Z02490761XEL187GYJBQP"
+  default = "Z08052673S2S1008ZWHEV"
 }

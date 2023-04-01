@@ -10,11 +10,12 @@ resource "aws_iam_policy" "WebAppS3" {
         Effect   = "Allow"
         Action   = [
             # "s3:*"
-          "s3:GetObject",
-          "s3:ListBucket",
+           "s3:GetObject",
+          "s3:GetObjectAcl",
           "s3:PutObject",
+          "s3:PutObjectAcl",
           "s3:DeleteObject",
-          "s3:Abort*",
+          "s3:ListBucket"
         ]
         Resource = [
             "arn:aws:s3:::${var.s3_bucket_name}",
