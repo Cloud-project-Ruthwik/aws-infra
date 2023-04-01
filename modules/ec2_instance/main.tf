@@ -80,38 +80,45 @@ resource "aws_instance" "Webapp_ec2" {
   associate_public_ip_address = "true"
   disable_api_termination = false
 
-user_data = <<EOF
+user_data = <<-EOF
+          #cloud-boothook
+          #!/bin/bash
+          sudo -u ec2-user touch /home/ec2-user/.env
+          # Add the values
+          sudo -u ec2-user echo "DB_USER=${var.database_username}" >> /home/ec2-user/.env
+          sudo -u ec2-user echo "DB_PASSWORD=${var.database_password}" >> /home/ec2-user/.env
+          sudo -u ec2-user echo "DB_HOST=${element(split(":", var.database_endpoint), 0)}" >> /home/ec2-user/.env
+          sudo -u ec2-user echo "AWS_BUCKET_NAME=${var.s3_bucket_name}" >> /home/ec2-user/.env
+          sudo -u ec2-user echo "DB_DB=csye6225" >> /home/ec2-user/.env
+          sudo -u ec2-user echo "AWS_REGION=${var.region}" >> /home/ec2-user/.env
 
- #!/bin/bash
- # Install Node.js and PM2
-  curl -sL https://rpm.nodesource.com/setup_14.x | sudo bash -
-  sudo yum install -y nodejs
-  sudo npm install -g pm2
-
-# Change to app directory
-cd /home/ec2-user
-
-# Install dependencies and build the app
-sudo npm install
-sudo npm run build
-
-# Set environment variables
-cat <<EOT >> /home/ec2-user/.env
-DB_HOST=${element(split(":", var.database_endpoint), 0)}
-DB_USER=${var.database_username}
-DB_PASSWORD=${var.database_password}
-DB_DB=csye6225
-AWS_BUCKET_NAME=${var.s3_bucket_name}
-EOT
-source /home/ec2-user/.env
-# Start the app with PM2
+         
+          # Start the app with PM2
 pm2 restart /home/ec2-user/server.js
+pm2 restart all --update-env
+pm2 reload ecosystem.json --update-env
 pm2 save
 
-EOF
+
+           EOF
 
 iam_instance_profile = aws_iam_instance_profile.Webapp_ec2.id
-
+  
+  provisioner "remote-exec" {
+    inline = [
+      "pm2 startup",
+      "sudo env PATH=$PATH:/home/ec2-user/.nvm/versions/node/v16.19.1/bin /home/ec2-user/.nvm/versions/node/v16.19.1/lib/node_modules/pm2/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user",
+      # "sudo env PATH=$PATH:/home/ec2-user/.nvm/versions/node/v16.19.1/bin /home/ec2-user/.nvm/versions/node/v16.19.1/lib/node_modules/pm2/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user",
+      "pm2 start server.js --env=.env",
+      "pm2 save",
+      "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/home/ec2-user/config.json -s"
+    ]
+    connection {
+    type        = "ssh"
+    user        = "ec2-user"
+    private_key = tls_private_key.ec2_key.private_key_pem
+    }
+  }
   root_block_device {
     volume_size = 50
     volume_type = "gp2"
@@ -121,23 +128,18 @@ iam_instance_profile = aws_iam_instance_profile.Webapp_ec2.id
     type        = "ssh"
     user        = "ec2-user"
     private_key = tls_private_key.ec2_key.private_key_pem
-    host        = aws_instance.ec2_instance.public_ip
+    host        = aws_instance.Webapp_ec2[count.index].public_ip
   }
 
   tags = {
     Name = "Webapp_ec2"
   }
-
 }
-
-
-
-  resource "aws_route53_record" "Webapp_ec2" {
+resource "aws_route53_record" "Webapp_ec2" {
   count   = var.ec2_instance_count
   zone_id = var.zone_id
   name    = ""
   type    = "A"
-  ttl     = 60
+  ttl     = 120
   records = [aws_instance.Webapp_ec2[count.index].public_ip]
 }
-

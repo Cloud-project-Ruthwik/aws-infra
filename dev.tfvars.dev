@@ -1,4 +1,4 @@
-region = "us-east-2"
+region = "us-east-1"
 vpc_cidr_block = "10.1.0.0/16"
 profile = "dev"
-zone_id = "Z0592528CHZK257DWRGO"
+zone_id = "Z08052673S2S1008ZWHEV"

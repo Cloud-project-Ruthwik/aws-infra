@@ -22,3 +22,7 @@ resource "aws_iam_role_policy_attachment" "webapp_s3_attachment" {
   policy_arn = var.WebAppS3_policy_arn
   role       = aws_iam_role.EC2_CSYE6225.name
 }
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent_attachment" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+  role       = aws_iam_role.EC2_CSYE6225.name
+}
