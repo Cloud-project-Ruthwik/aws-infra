@@ -13,7 +13,3 @@ variable "private_route_table_cidr" {
 }
 
 
-# variable "internet_gateway_id" {
-#   type        = string
-#   description = "ID of the internet gateway to use as the default route target"
-# }

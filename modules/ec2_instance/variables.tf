@@ -69,3 +69,19 @@ variable "region"{
 variable "zone_id"{
   default = "Z08052673S2S1008ZWHEV"
 }
+
+variable "load_balancer_security_group_id"{
+  
+}
+
+variable "load_balancer_dns_name"{
+  
+}
+
+variable "load_balancer_zone_id"{
+  
+}
+
+variable "load_balancer_target_group_arn"{
+  
+}

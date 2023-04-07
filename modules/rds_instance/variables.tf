@@ -22,8 +22,10 @@ variable "settings" {
 
 variable "db_username" {
 
+
 }
 variable "db_password" {
+  
 
 }
 variable "application_security_group_id" {

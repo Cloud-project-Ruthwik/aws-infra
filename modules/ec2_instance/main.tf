@@ -17,46 +17,53 @@ resource "aws_security_group" "application" {
   description = "application security group"
   vpc_id     = var.vpc_id
 
-  ingress {
-    description      = "HTTPS"
-    from_port        = 443
-    to_port          = 443
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_groups = [var.load_balancer_security_group_id]
   }
+
   ingress {
-    description      = "HTTP"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+   security_groups = [var.load_balancer_security_group_id]
   }
   ingress {
     description      = "SSH"
     from_port        = 22
     to_port          = 22
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    cidr_blocks  = ["0.0.0.0/0"]
   }
   ingress {
     description      = "application port"
     from_port        = var.application_port
     to_port          = var.application_port
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    security_groups      = [var.load_balancer_security_group_id]
   }
   ingress {
     description      = "Psql"
     from_port        = 5432
     to_port          = 5432
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    security_groups      = [var.load_balancer_security_group_id]
   }
   egress {
     from_port        = 0
     to_port          = 0
     protocol         = "-1"
     cidr_blocks      = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
@@ -69,77 +76,131 @@ resource "aws_iam_instance_profile" "Webapp_ec2" {
   role = var.iam_role_name
 }
 
-resource "aws_instance" "Webapp_ec2" {
-
-  count                       = var.ec2_instance_count
-  ami                         = var.ami_id
-  instance_type               = "t2.micro"
-  key_name                    = aws_key_pair.ec2_key.key_name
-  subnet_id                   = var.public_subnet_ids[count.index]
-  vpc_security_group_ids      = [aws_security_group.application.id]
-  associate_public_ip_address = "true"
-  disable_api_termination = false
-
-user_data = <<-EOF
-          #cloud-boothook
-          #!/bin/bash
-          sudo -u ec2-user touch /home/ec2-user/.env
-          # Add the values
-          sudo -u ec2-user echo "DB_USER=${var.database_username}" >> /home/ec2-user/.env
-          sudo -u ec2-user echo "DB_PASSWORD=${var.database_password}" >> /home/ec2-user/.env
-          sudo -u ec2-user echo "DB_HOST=${element(split(":", var.database_endpoint), 0)}" >> /home/ec2-user/.env
-          sudo -u ec2-user echo "AWS_BUCKET_NAME=${var.s3_bucket_name}" >> /home/ec2-user/.env
-          sudo -u ec2-user echo "DB_DB=csye6225" >> /home/ec2-user/.env
-          sudo -u ec2-user echo "AWS_REGION=${var.region}" >> /home/ec2-user/.env
-
-         
-          # Start the app with PM2
-pm2 restart /home/ec2-user/server.js
-pm2 restart all --update-env
-pm2 reload ecosystem.json --update-env
-pm2 save
-
-
-           EOF
-
-iam_instance_profile = aws_iam_instance_profile.Webapp_ec2.id
-  
-  provisioner "remote-exec" {
-    inline = [
-      "pm2 startup",
-      "sudo env PATH=$PATH:/home/ec2-user/.nvm/versions/node/v16.19.1/bin /home/ec2-user/.nvm/versions/node/v16.19.1/lib/node_modules/pm2/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user",
-      # "sudo env PATH=$PATH:/home/ec2-user/.nvm/versions/node/v16.19.1/bin /home/ec2-user/.nvm/versions/node/v16.19.1/lib/node_modules/pm2/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user",
-      "pm2 start server.js --env=.env",
-      "pm2 save",
-      "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/home/ec2-user/config.json -s"
-    ]
-    connection {
-    type        = "ssh"
-    user        = "ec2-user"
-    private_key = tls_private_key.ec2_key.private_key_pem
-    }
-  }
-  root_block_device {
-    volume_size = 50
-    volume_type = "gp2"
-  }
-
-  connection {
-    type        = "ssh"
-    user        = "ec2-user"
-    private_key = tls_private_key.ec2_key.private_key_pem
-    host        = aws_instance.Webapp_ec2[count.index].public_ip
-  }
-
-  tags = {
-    Name = "Webapp_ec2"
-  }
-}
 resource "aws_route53_record" "Webapp_ec2" {
   count   = var.ec2_instance_count
   zone_id = var.zone_id
   name    = ""
   type    = "A"
-  ttl     = 120
-  records = [aws_instance.Webapp_ec2[count.index].public_ip]
+ alias {
+    name                   = var.load_balancer_dns_name
+    zone_id                = var.load_balancer_zone_id
+    evaluate_target_health = false
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_cloudwatch_log_group" "my-webapp-err-group" {
+  name = "my-webapp-err-group"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "my-webapp-info-group" {
+  name = "my-webapp-info-group"
+  retention_in_days = 7
+}
+
+
+//autoscaling:
+resource "aws_launch_configuration" "Webapp_ec2" {
+  name              = "asg_launch_config"
+  image_id                    = var.ami_id
+  instance_type               = "t2.micro"
+  key_name                    = aws_key_pair.ec2_key.key_name
+  security_groups             = [aws_security_group.application.id]
+  associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.Webapp_ec2.id
+  user_data = <<-EOF
+          
+          #cloud-boothook
+          #!/bin/bash
+          su - ec2-user -c 'touch /home/ec2-user/.env'
+          # Add the values
+          su - ec2-user -c 'echo "DB_USER=${var.database_username}" >> /home/ec2-user/.env'
+          su - ec2-user -c 'echo "DB_PASSWORD=${var.database_password}" >> /home/ec2-user/.env'
+          su - ec2-user -c 'echo "DB_HOST=${element(split(":", var.database_endpoint), 0)}" >> /home/ec2-user/.env'
+          su - ec2-user -c 'echo "AWS_BUCKET_NAME=${var.s3_bucket_name}" >> /home/ec2-user/.env'
+          su - ec2-user -c 'echo "DB_DB=csye6225" >> /home/ec2-user/.env'
+          su - ec2-user -c 'echo "AWS_REGION=${var.region}" >> /home/ec2-user/.env'
+
+          su - ec2-user -c 'pm2 startup'
+          su - ec2-user -c 'sudo env PATH=$PATH:/home/ec2-user/.nvm/versions/node/v16.19.1/bin /home/ec2-user/.nvm/versions/node/v16.19.1/lib/node_modules/pm2/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user'
+          su - ec2-user -c 'pm2 start server.js --env=.env'
+          su - ec2-user -c 'pm2 save'
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/home/ec2-user/config.json -s
+    
+
+           EOF
+
+  root_block_device {
+    volume_size = 50
+    volume_type = "gp2"
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.my-webapp-err-group,
+    aws_cloudwatch_log_group.my-webapp-info-group,
+  ]
+}
+
+
+resource "aws_autoscaling_group" "Webapp_ec2" {
+  name = "asg_launch_config"
+  launch_configuration = aws_launch_configuration.Webapp_ec2.id
+  min_size = 1
+  max_size = 3
+  desired_capacity = 1
+  default_cooldown = 60
+  vpc_zone_identifier = var.public_subnet_ids
+}
+
+resource "aws_autoscaling_policy" "scale_up_policy" {
+  name                   = "scale_up_policy"
+  policy_type            = "SimpleScaling"
+  scaling_adjustment     = "1"
+  cooldown               = "60"
+  adjustment_type = "ChangeInCapacity"
+  autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+}
+
+resource "aws_autoscaling_policy" "scale_down_policy" {
+   name                   = "scale_down_policy"
+  policy_type            = "SimpleScaling"
+  scaling_adjustment     = "-1"
+  cooldown               = "60"
+  adjustment_type = "ChangeInCapacity"
+  autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+}
+
+
+resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
+  alarm_name          = "scale-up-alarm"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 120
+  statistic           = "Average"
+  threshold           = 5
+  alarm_description   = "This metric monitors CPU utilization"
+  alarm_actions       = [aws_autoscaling_policy.scale_up_policy.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
+  alarm_name          = "scale-down-alarm"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 120
+  statistic           = "Average"
+  threshold           = 3
+  alarm_description   = "This metric monitors CPU utilization"
+  alarm_actions       = [aws_autoscaling_policy.scale_down_policy.arn]
+}
+
+resource "aws_autoscaling_attachment" "Webapp_ec2" {
+  autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+  lb_target_group_arn   = var.load_balancer_target_group_arn
 }

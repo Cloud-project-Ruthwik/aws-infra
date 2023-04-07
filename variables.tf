@@ -69,8 +69,12 @@ variable "environment" {
   default = "dev"
 }
 
-variable "db_username" {}
-variable "db_password" {}
+variable "db_username" {
+
+}
+variable "db_password" {
+
+}
 variable "db_instance_count" {
   default = 1
 }
