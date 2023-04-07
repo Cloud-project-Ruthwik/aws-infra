@@ -88,7 +88,15 @@ module "ec2_instance" {
   database_username = module.rds_instance.database_username
   database_password = module.rds_instance.database_password
   zone_id            = var.zone_id
+  load_balancer_security_group_id = module.load_balancer.load_balancer_security_group_id
+  load_balancer_dns_name = module.load_balancer.load_balancer_dns_name
+  load_balancer_zone_id = module.load_balancer.load_balancer_zone_id
+  load_balancer_target_group_arn = module.load_balancer.load_balancer_target_group_arn
 }
 
+module "load_balancer" {
+  source = "./modules/Load_Balancer"
+  public_subnet_ids = module.public_subnets.public_subnet_ids
+  vpc_id             = module.vpc.vpc_id
 
-
+}
