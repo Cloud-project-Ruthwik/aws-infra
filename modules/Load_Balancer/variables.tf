@@ -19,3 +19,9 @@ variable "application_port" {
 variable "zone_id"{
   default = "Z08052673S2S1008ZWHEV"
 }
+
+variable "certificate_arn"{
+  default = "arn:aws:acm:us-east-2:615679487028:certificate/91b4de4a-fea8-4aa8-9e61-456b225ff31c"
+}
+
+# dev = arn:aws:acm:us-east-2:049089338565:certificate/37b073f6-b777-4f78-9845-64ae4be8a551
