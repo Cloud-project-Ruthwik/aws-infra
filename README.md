@@ -24,3 +24,8 @@ To destroy the resources created in other regions use the command
 
 terraform destroy -var 'region=us-east-1'
 
+To import the certificates follow the below command:
+
+aws acm import-certificate --profile demo --region us-east-1 --certificate fileb://prod_ruthwikbg_me.crt --private-key fileb://private.key --certificate-chain fileb://prod_ruthwikbg_me.ca-bundle
+
+Replace  prod.ruthwikbg.me.crt, prod.ruthwikbg.me.ca-bundle and private.key with the appropriate file paths respectively.
