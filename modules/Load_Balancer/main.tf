@@ -47,16 +47,22 @@ resource "aws_security_group" "load_balancer" {
   }
 }
 
+
+
 resource "aws_lb_listener" "Webapp_lb_listener" {
   load_balancer_arn = aws_lb.application.arn
-  port              = "80"
-  protocol          = "HTTP"
+  port              = "443"
+  protocol          = "HTTPS"
+
+  ssl_policy      = "ELBSecurityPolicy-2016-08"
+  certificate_arn = var.certificate_arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.Webapp-tg.arn
   }
 }
+
 
 resource "aws_lb_target_group" "Webapp-tg" {
   name        = "Webapp-tg"

@@ -45,7 +45,11 @@ resource "aws_db_instance" "database" {
   publicly_accessible    = false
   skip_final_snapshot    = true
   parameter_group_name   = aws_db_parameter_group.database.name
+  storage_encrypted = true
+  kms_key_id = aws_kms_key.database_key.arn
   
 }
 
-# 
+resource "aws_kms_key" "database_key" {
+  description = "KMS key for encrypting the RDS instance"
+}
