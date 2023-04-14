@@ -21,7 +21,8 @@ variable "zone_id"{
 }
 
 variable "certificate_arn"{
-  default = "arn:aws:acm:us-east-2:615679487028:certificate/91b4de4a-fea8-4aa8-9e61-456b225ff31c"
+  default =  "arn:aws:acm:us-east-1:763590384604:certificate/5a47e8b2-e1ce-4c00-a3b0-125260c94711"
 }
 
-# dev = arn:aws:acm:us-east-2:049089338565:certificate/37b073f6-b777-4f78-9845-64ae4be8a551
+# dev = arn:aws:acm:us-east-1:882783971484:certificate/f9e14d49-a5db-48a7-a6b1-ef595185f587
+
