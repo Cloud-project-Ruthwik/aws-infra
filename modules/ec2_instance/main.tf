@@ -102,7 +102,7 @@ resource "aws_cloudwatch_log_group" "my-webapp-info-group" {
 
 data "aws_ami" "latest" {
   most_recent = true
-  owners      = ["self","049089338565"]
+  owners      = ["self","882783971484"]
 }
 
 resource "aws_launch_template" "Webapp_ec2" {
