@@ -77,7 +77,6 @@ resource "aws_iam_instance_profile" "Webapp_ec2" {
 }
 
 resource "aws_route53_record" "Webapp_ec2" {
-  count   = var.ec2_instance_count
   zone_id = var.zone_id
   name    = ""
   type    = "A"
@@ -101,18 +100,35 @@ resource "aws_cloudwatch_log_group" "my-webapp-info-group" {
   retention_in_days = 7
 }
 
+data "aws_ami" "latest" {
+  most_recent = true
+  owners      = ["self","049089338565"]
+}
 
-//autoscaling:
-resource "aws_launch_configuration" "Webapp_ec2" {
-  name              = "asg_launch_config"
-  image_id                    = var.ami_id
-  instance_type               = "t2.micro"
-  key_name                    = aws_key_pair.ec2_key.key_name
-  security_groups             = [aws_security_group.application.id]
-  associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.Webapp_ec2.id
-  user_data = <<-EOF
-          
+resource "aws_launch_template" "Webapp_ec2" {
+  name               = "asg_launch_config"
+  image_id           = data.aws_ami.latest.id
+  instance_type      = "t2.micro"
+  key_name           = aws_key_pair.ec2_key.key_name
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [aws_security_group.application.id]
+  }
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.Webapp_ec2.name
+  }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 50
+      volume_type = "gp2"
+      encrypted   = true
+    }
+  }
+
+  user_data = base64encode(<<EOF
           #cloud-boothook
           #!/bin/bash
           su - ec2-user -c 'touch /home/ec2-user/.env'
@@ -129,78 +145,147 @@ resource "aws_launch_configuration" "Webapp_ec2" {
           su - ec2-user -c 'pm2 start server.js --env=.env'
           su - ec2-user -c 'pm2 save'
           sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/home/ec2-user/config.json -s
-    
 
-           EOF
+          EOF
+        )
+}
 
-  root_block_device {
-    volume_size = 50
-    volume_type = "gp2"
+resource "aws_autoscaling_group" "Webapp_ec2" {
+  name = "asg_launch_config"
+  # launch_configuration = aws_launch_configuration.Webapp_ec2.id
+  launch_template {
+    id      = aws_launch_template.Webapp_ec2.id
+    version = "$Latest"
   }
-
   depends_on = [
     aws_cloudwatch_log_group.my-webapp-err-group,
     aws_cloudwatch_log_group.my-webapp-info-group,
   ]
-}
-
-
-resource "aws_autoscaling_group" "Webapp_ec2" {
-  name = "asg_launch_config"
-  launch_configuration = aws_launch_configuration.Webapp_ec2.id
   min_size = 1
   max_size = 3
   desired_capacity = 1
   default_cooldown = 60
   vpc_zone_identifier = var.public_subnet_ids
+  health_check_type = "EC2"
+  tag {
+    key                 = "webapp"
+    value               = "webappInstance"
+    propagate_at_launch = true
+  }
 }
 
-resource "aws_autoscaling_policy" "scale_up_policy" {
-  name                   = "scale_up_policy"
-  policy_type            = "SimpleScaling"
-  scaling_adjustment     = "1"
-  cooldown               = "60"
-  adjustment_type = "ChangeInCapacity"
-  autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
-}
+# resource "aws_autoscaling_policy" "scale_up_policy" {
+#   name                   = "scale_up_policy"
+#   policy_type            = "SimpleScaling"
+#   scaling_adjustment     = "1"
+#   cooldown               = "60"
+#   adjustment_type = "ChangeInCapacity"
+#   autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+# }
 
-resource "aws_autoscaling_policy" "scale_down_policy" {
-   name                   = "scale_down_policy"
-  policy_type            = "SimpleScaling"
-  scaling_adjustment     = "-1"
-  cooldown               = "60"
-  adjustment_type = "ChangeInCapacity"
-  autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
-}
+# resource "aws_autoscaling_policy" "scale_down_policy" {
+#    name                   = "scale_down_policy"
+#   policy_type            = "SimpleScaling"
+#   scaling_adjustment     = "-1"
+#   cooldown               = "60"
+#   adjustment_type = "ChangeInCapacity"
+#   autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+# }
 
 
-resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
-  alarm_name          = "scale-up-alarm"
+# resource "aws_cloudwatch_metric_alarm" "scale_up_alarm" {
+#   alarm_name          = "scale-up-alarm"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = 2
+#   metric_name         = "CPUUtilization"
+#   namespace           = "AWS/EC2"
+#   period              = 120
+#   statistic           = "Average"
+#   threshold           = 5
+#   alarm_description   = "This metric monitors CPU utilization"
+#   alarm_actions       = [aws_autoscaling_policy.scale_up_policy.arn]
+# }
+
+# resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
+#   alarm_name          = "scale-down-alarm"
+#   comparison_operator = "LessThanThreshold"
+#   evaluation_periods  = 2
+#   metric_name         = "CPUUtilization"
+#   namespace           = "AWS/EC2"
+#   period              = 120
+#   statistic           = "Average"
+#   threshold           = 3
+#   alarm_description   = "This metric monitors CPU utilization"
+#   alarm_actions       = [aws_autoscaling_policy.scale_down_policy.arn]
+# }
+
+# resource "aws_autoscaling_attachment" "Webapp_ec2" {
+#   autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+#   lb_target_group_arn   = var.load_balancer_target_group_arn
+# }
+
+
+
+resource "aws_cloudwatch_metric_alarm" "scaleUpAlarm" {
+  alarm_name          = "ASG_Scale_Up"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
+  evaluation_periods  = 1
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = 120
+  period              = 60
   statistic           = "Average"
   threshold           = 5
-  alarm_description   = "This metric monitors CPU utilization"
-  alarm_actions       = [aws_autoscaling_policy.scale_up_policy.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.Webapp_ec2.name
+  }
+
+  alarm_description = "Scale up if CPU > 5% for 1 minute"
+  alarm_actions     = [aws_autoscaling_policy.scale_up_policy.arn]
 }
 
-resource "aws_cloudwatch_metric_alarm" "scale_down_alarm" {
-  alarm_name          = "scale-down-alarm"
+resource "aws_cloudwatch_metric_alarm" "scaleDownAlarm" {
+  alarm_name          = "ASG_Scale_Down"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = 120
+  period              = 60
   statistic           = "Average"
   threshold           = 3
-  alarm_description   = "This metric monitors CPU utilization"
-  alarm_actions       = [aws_autoscaling_policy.scale_down_policy.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.Webapp_ec2.name
+  }
+
+  alarm_description = "Scale down if CPU < 3% for 2 minutes"
+  alarm_actions     = [aws_autoscaling_policy.scale_down_policy.arn]
+}
+
+resource "aws_autoscaling_policy" "scale_up_policy" {
+  name = "scale_up_policy"
+  policy_type = "SimpleScaling"
+  scaling_adjustment = 1
+  adjustment_type  = "ChangeInCapacity" 
+  cooldown = 60 # cooldown in seconds
+  autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+  metric_aggregation_type = "Average"
+  # alarm_name = aws_cloudwatch_metric_alarm.cpu_utilization_alarm.name
+}
+
+
+resource "aws_autoscaling_policy" "scale_down_policy" {
+  name = "scale_down_policy"
+  policy_type = "SimpleScaling"
+  scaling_adjustment = -1 
+  adjustment_type = "ChangeInCapacity"
+  cooldown = 60 # cooldown in seconds
+  autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
+  metric_aggregation_type = "Average"
+  # alarm_name = aws_cloudwatch_metric_alarm.cpu_utilization_alarm.name
 }
 
 resource "aws_autoscaling_attachment" "Webapp_ec2" {
   autoscaling_group_name = aws_autoscaling_group.Webapp_ec2.name
-  lb_target_group_arn   = var.load_balancer_target_group_arn
+  lb_target_group_arn    = var.load_balancer_target_group_arn
 }
